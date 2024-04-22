@@ -1,3 +1,23 @@
+#backup 1
+
+import React from 'react';
+import { View, Button } from 'react-native';
+
+const App = () => {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Button title="Press Me" onPress={() => alert('Button pressed!')} />
+    </View>
+  );
+};
+
+export default App;
+
+
+
+#backup 2
+
+
 import React, { Component } from 'react';
 import { BleManager } from 'react-native-ble-plx';
 import { Text, View, Button } from 'react-native';
@@ -8,8 +28,7 @@ class BLEExample extends Component {
     this.manager = new BleManager();
     this.state = {
       devices: [],
-      connectedDevice: null,
-      receivedValue: ''
+      connectedDevice: null
     };
   }
 
@@ -39,27 +58,6 @@ class BLEExample extends Component {
     try {
       const connectedDevice = await device.connect();
       this.setState({ connectedDevice });
-
-      // Subscribe to notifications
-      connectedDevice.onDisconnected((error, disconnectedDevice) => {
-        this.setState({ connectedDevice: null });
-      });
-
-      const services = await connectedDevice.discoverAllServicesAndCharacteristics();
-      const characteristic = services.characteristics.find(
-        c => c.uuid === '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
-      );
-
-      // Subscribe to notifications
-      const subscription = characteristic.monitor((error, characteristic) => {
-        if (error) {
-          console.error('Error subscribing to characteristic:', error);
-          return;
-        }
-        const receivedValue = characteristic.value;
-        this.setState({ receivedValue });
-      });
-
     } catch (err) {
       console.error(err);
     }
@@ -68,7 +66,6 @@ class BLEExample extends Component {
   render() {
     return (
       <View>
-        <Text>Received Value: {this.state.receivedValue}</Text>
         <Text>Available Devices:</Text>
         {this.state.devices.map(device => (
           <View key={device.id}>
