@@ -1,87 +1,169 @@
-import React, { Component } from 'react';
-import { BleManager } from 'react-native-ble-plx';
-import { Text, View, Button } from 'react-native';
+import React, { useEffect, useState } from "react";
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import DeviceConnectionModal from "./DeviceConnectionModal";
+import DeviceAuthModal from "./DeviceAuthModal";
+import DeviceInformationModal from "./DeviceInformationModal";
+import useBLE from "./useBLE";
 
-class BLEExample extends Component {
-  constructor() {
-    super();
-    this.manager = new BleManager();
-    this.state = {
-      devices: [],
-      connectedDevice: null,
-      receivedValue: ''
-    };
-  }
 
-  componentDidMount() {
-    this.scanAndConnect();
-  }
 
-  scanAndConnect = async () => {
-    try {
-      this.manager.startDeviceScan(null, null, (error, device) => {
-        if (error) {
-          console.error(error);
-          return;
-        }
-        if (!this.state.devices.some(d => d.id === device.id)) {
-          this.setState(prevState => ({
-            devices: [...prevState.devices, device]
-          }));
-        }
-      });
-    } catch (err) {
-      console.error(err);
+const App = () => {
+  const {
+    requestPermissions,
+    scanForPeripherals,
+    allDevices,
+    connectToDevice,
+    connectedDevice,
+    AuthInfo,
+    disconnectFromDevice,
+    WriteAuthCodeToDevice,    
+    openDoor,
+    StartInfomationStream,
+    DoorStatus,
+    DoorhandleStatus,
+    LockStatus,
+    HeartBeat,
+  } = useBLE();
+
+  const [isConectionModalVisible, setIsConnectionModalVisible] = useState<boolean>(false);
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState<boolean>(false);
+  const [isInformationModalVisible, SetIsInformationModalVisible] = useState<boolean>(false);
+  useEffect(() => {
+    console.log('Device disconnect:', connectedDevice);
+    if(!connectedDevice){
+        hideall();
+    }
+    
+  }, [connectedDevice]);
+
+  const scanForDevices = async () => {
+    const isPermissionsEnabled = await requestPermissions();
+    if (isPermissionsEnabled) {
+      scanForPeripherals();
     }
   };
 
-  connectToDevice = async device => {
-    try {
-      const connectedDevice = await device.connect();
-      this.setState({ connectedDevice });
+  const hideall = () => {
+    setIsConnectionModalVisible(false);
+    setIsAuthModalVisible(false);
+    SetIsInformationModalVisible(false);
+  }
 
-      // Subscribe to notifications
-      connectedDevice.onDisconnected((error, disconnectedDevice) => {
-        this.setState({ connectedDevice: null });
-      });
+  const hideConModal = () => {
+    setIsConnectionModalVisible(false);
+  };
 
-      const services = await connectedDevice.discoverAllServicesAndCharacteristics();
-      const characteristic = services.characteristics.find(
-        c => c.uuid === '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
-      );
+  const openConModal = async () => {
+    scanForDevices();
+    setIsConnectionModalVisible(true);
+  };
 
-      // Subscribe to notifications
-      const subscription = characteristic.monitor((error, characteristic) => {
-        if (error) {
-          console.error('Error subscribing to characteristic:', error);
-          return;
-        }
-        const receivedValue = characteristic.value;
-        this.setState({ receivedValue });
-      });
+  const hideAuthModal =  () => {
+    setIsAuthModalVisible(false);
+    disconnectFromDevice();
+  };
 
-    } catch (err) {
-      console.error(err);
+  const openAuthModal = async () => {
+    setIsAuthModalVisible(true);
+    setIsConnectionModalVisible(false);
+  };
+
+  const openInformationModal = async () => {
+    setIsAuthModalVisible(false);
+    SetIsInformationModalVisible(true);
+    if(connectedDevice){
+      StartInfomationStream(connectedDevice);
     }
   };
 
-  render() {
-    return (
-      <View>
-        <Text>Received Value: {this.state.receivedValue}</Text>
-        <Text>Available Devices:</Text>
-        {this.state.devices.map(device => (
-          <View key={device.id}>
-            <Text>{device.name || 'Unknown'}</Text>
-            <Button
-              title="Connect"
-              onPress={() => this.connectToDevice(device)}
-            />
-          </View>
-        ))}
+  const hideInformationModal = () => {
+    SetIsInformationModalVisible(false);
+    disconnectFromDevice();
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.heartRateTitleWrapper}>
+          <Text style={styles.heartRateTitleText}>
+            Please Connect to lock
+          </Text>
       </View>
-    );
-  }
-}
+      <TouchableOpacity
+        onPress={openConModal}
+        style={styles.ctaButton}
+      >
+        <Text style={styles.ctaButtonText}>
+          Connect
+        </Text>
+      </TouchableOpacity>
+      <DeviceInformationModal
+        visible={isInformationModalVisible}
+        closeModal={hideInformationModal}
+        DoorStatus = {DoorStatus}
+        DoorHandleStatus = {DoorhandleStatus}
+        LockStatus ={LockStatus}
+        HeartBeat = {HeartBeat}
+        OpenDoor = {openDoor}
+      />
+      <DeviceAuthModal
+        visible={isAuthModalVisible}
+        writeCharacteristicWithResponseForDevice = {WriteAuthCodeToDevice}
+        Authinfo = {AuthInfo}
+        closeModal={openInformationModal}
+        disconect={hideAuthModal}
+      />
+      <DeviceConnectionModal
+        closeModal={openAuthModal}
+        visible={isConectionModalVisible}
+        connectToPeripheral={connectToDevice}
+        devices={allDevices}
+      />
+    </SafeAreaView>
+  );
+};
 
-export default BLEExample;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f2f2f2",
+  },
+  heartRateTitleWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heartRateTitleText: {
+    fontSize: 30,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginHorizontal: 20,
+    color: "black",
+  },
+  heartRateText: {
+    fontSize: 25,
+    marginTop: 15,
+  },
+  ctaButton: {
+    backgroundColor: "#FF6060",
+    justifyContent: "center",
+    alignItems: "center",
+    height: 50,
+    marginHorizontal: 20,
+    marginBottom: 5,
+    borderRadius: 8,
+  },
+  ctaButtonText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "black",
+  },
+});
+
+export default App;
