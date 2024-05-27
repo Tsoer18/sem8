@@ -11,6 +11,7 @@ import DeviceConnectionModal from "./DeviceConnectionModal";
 import DeviceAuthModal from "./DeviceAuthModal";
 import DeviceInformationModal from "./DeviceInformationModal";
 import useBLE from "./useBLE";
+import DeviceAdminModal from "./DeviceAdminModal";
 
 
 
@@ -30,11 +31,17 @@ const App = () => {
     DoorhandleStatus,
     LockStatus,
     HeartBeat,
+    WriteCodeChangeToDevcie,
+    WriteAdminCodeChangeToDevcie,
+    StartCodeChangeListen,
+    CodeChangeStatus
   } = useBLE();
 
   const [isConectionModalVisible, setIsConnectionModalVisible] = useState<boolean>(false);
   const [isAuthModalVisible, setIsAuthModalVisible] = useState<boolean>(false);
   const [isInformationModalVisible, SetIsInformationModalVisible] = useState<boolean>(false);
+  const [isAdminModalVisble, setIsAdminModalVisble] = useState<boolean>(false);
+
   useEffect(() => {
     console.log('Device disconnect:', connectedDevice);
     if(!connectedDevice){
@@ -54,11 +61,19 @@ const App = () => {
     setIsConnectionModalVisible(false);
     setIsAuthModalVisible(false);
     SetIsInformationModalVisible(false);
+    setIsAdminModalVisble(false);
   }
 
-  const hideConModal = () => {
-    setIsConnectionModalVisible(false);
+  const OpenAdminModal = () => {
+    setIsAdminModalVisble(true);
+    setIsAuthModalVisible(false);
+    StartCodeChangeListen();
   };
+
+  const hideAdminModal = () => {
+    setIsAdminModalVisble(false)
+    disconnectFromDevice();
+  }
 
   const openConModal = async () => {
     scanForDevices();
@@ -103,6 +118,13 @@ const App = () => {
           Connect
         </Text>
       </TouchableOpacity>
+      <DeviceAdminModal
+        visible ={isAdminModalVisble}
+        Adminclose={hideAdminModal}
+        ChangeAdminCode={WriteAdminCodeChangeToDevcie}
+        ChangeCode={WriteCodeChangeToDevcie}
+        UpdateStatus = {CodeChangeStatus}
+      />
       <DeviceInformationModal
         visible={isInformationModalVisible}
         closeModal={hideInformationModal}
@@ -116,8 +138,9 @@ const App = () => {
         visible={isAuthModalVisible}
         writeCharacteristicWithResponseForDevice = {WriteAuthCodeToDevice}
         Authinfo = {AuthInfo}
-        closeModal={openInformationModal}
+        OpenInfoModal={openInformationModal}
         disconect={hideAuthModal}
+        OpenAdminModal={OpenAdminModal}
       />
       <DeviceConnectionModal
         closeModal={openAuthModal}

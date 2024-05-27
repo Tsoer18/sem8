@@ -28,6 +28,10 @@ const LockStatusUUID = "fff5";
 const HeartBeatUUID = "fff6";
 const DoorOpen = "fff7";
 
+const AdmincodeChangeUUID = "fff9";
+const CodeChangeUUID = "fffa";
+const CodeChangeStatusUUID = "fffb";
+
 interface BluetoothLowEnergyApi {
   requestPermissions(): Promise<boolean>;
   scanForPeripherals(): void;
@@ -38,11 +42,15 @@ interface BluetoothLowEnergyApi {
   AuthInfo: string;
   WriteAuthCodeToDevice:(Code: string) => void;
   openDoor:() => void;
-  StartInfomationStream: (device: Device) => void
+  StartInfomationStream: (device: Device) => void;
   DoorStatus: string;
   DoorhandleStatus: string;
   LockStatus: string;
   HeartBeat: string;
+  WriteAdminCodeChangeToDevcie: (Code: string) => void;
+  WriteCodeChangeToDevcie: (Code: string) => void;
+  StartCodeChangeListen: () => void;
+  CodeChangeStatus: string;
 }
 
 function useBLE(): BluetoothLowEnergyApi {
@@ -54,6 +62,7 @@ function useBLE(): BluetoothLowEnergyApi {
   const [DoorhandleStatus, setDoorHandleStatus] = useState<string>("..");
   const [LockStatus, setLockStatus] = useState<string>("..");
   const [HeartBeat, setHeartBeat] = useState<string>("..");
+  const [CodeChangeStatus, SetChangeStatus] = useState<string>("..");
 
 
 
@@ -297,6 +306,7 @@ function useBLE(): BluetoothLowEnergyApi {
 
   }
   
+
   const WriteAuthCodeToDevice = (Code: string) =>{
     if(!connectedDevice){
       console.log(deviceNotConnectedErrorText);
@@ -322,6 +332,78 @@ function useBLE(): BluetoothLowEnergyApi {
     }
   };
   
+  const StartCodeChangeListen = () => {
+    if(!connectedDevice){
+      console.log(deviceNotConnectedErrorText);
+    }else{
+      connectedDevice.monitorCharacteristicForService(
+        ServiceUUID,
+        CodeChangeStatusUUID,
+        OnCodeChangeUpdate
+      );
+    }
+  }
+
+  const OnCodeChangeUpdate = (
+    error: BleError | null,
+    characteristic: Characteristic | null
+  ) => {
+    if (error) {
+      console.log(error);
+      return -1;
+    } else if (!characteristic?.value) {
+      console.log("No Data was recieved");
+      return -1;
+    }
+
+    const rawData = base64.decode(characteristic.value);
+    SetChangeStatus(rawData);
+  };
+
+  const WriteAdminCodeChangeToDevcie = (Code: string) =>{
+    if(!connectedDevice){
+      console.log(deviceNotConnectedErrorText);
+    }else{
+      let value: Base64 = base64.encode(Code);
+
+      bleManager
+      .writeCharacteristicWithResponseForDevice(
+        connectedDevice.id,
+        ServiceUUID,
+        AdmincodeChangeUUID,
+        value
+      )
+      .then(() => {
+        console.log("Characteristic write successful");
+      })
+      .catch((error) => {
+        console.error("Characteristic write error:", error);
+      });
+    }
+  }
+
+  const WriteCodeChangeToDevcie = (Code: string) =>{
+    if(!connectedDevice){
+      console.log(deviceNotConnectedErrorText);
+    }else{
+      let value: Base64 = base64.encode(Code);
+
+      bleManager
+      .writeCharacteristicWithResponseForDevice(
+        connectedDevice.id,
+        ServiceUUID,
+        CodeChangeUUID,
+        value
+      )
+      .then(() => {
+        console.log("Characteristic write successful");
+      })
+      .catch((error) => {
+        console.error("Characteristic write error:", error);
+      });
+    }
+  }
+
 
   return {
     scanForPeripherals,
@@ -338,6 +420,10 @@ function useBLE(): BluetoothLowEnergyApi {
     DoorhandleStatus,
     LockStatus,
     HeartBeat,
+    WriteCodeChangeToDevcie,
+    WriteAdminCodeChangeToDevcie,
+    StartCodeChangeListen,
+    CodeChangeStatus
   };
 }
 

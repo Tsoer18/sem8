@@ -23,9 +23,14 @@ const int greenLEDPin = 5;
 const int redLEDPin = 18;
 
 // Define the combination
-const int correctCombination[6] = {5, 5, 5, 5, 5, 5};
+const int maxElements = 6;
+int values[maxElements];
+int numElements = 0;
+int correctCombination[6] = {5, 5, 5, 5, 5, 5};
+int correctAdminCombination[6] = {4, 4, 4, 4, 4, 4};
+int enteredbleCombination[6] = {0, 0, 0, 0, 0, 0};
 int enteredCombination[6] = {0, 0, 0, 0, 0, 0};
-const String CorrectCombiBLue = ("5,5,5,5,5,5");
+const int combilength = 6;
 
 int currentIndex = 0;
 
@@ -56,7 +61,6 @@ void TaskDoorHandle(void *pvParameters);
 bool TimerStop1 = false;
 bool TimerStop2 = false;
 
-
 // Timer inturupt
 void IRAM_ATTR onTimer1()
 {
@@ -70,13 +74,19 @@ BLEStringCharacteristic DoorStatus("fff3", BLERead | BLENotify, 31);
 BLEStringCharacteristic DoorHandleStatus("fff4", BLERead | BLENotify, 31);
 BLEStringCharacteristic LockStatus("fff5", BLERead | BLENotify, 31);
 BLEStringCharacteristic HeartBeat("fff6", BLERead | BLENotify, 31);
+BLEStringCharacteristic AdminChangeCharacteristic("fff9", BLEWrite, 31);
+BLEStringCharacteristic codeChangeCharacteristic("fffa", BLEWrite, 31);
+BLEStringCharacteristic ChangeStatus("fffb", BLERead | BLENotify, 40);
 BLEIntCharacteristic DoorOPen("fff7", BLEWrite | BLENotify);
 BLEIntCharacteristic timer2info("fff8", BLERead | BLENotify);
 
 // Advertising parameters should have a global scope. Do NOT define them in 'setup' or in 'loop'
 const uint8_t completeRawAdvertisingData[] = {0x02, 0x01, 0x06, 0x09, 0xff, 0x01, 0x01, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
-void switchCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic);
+void AuthCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic);
 void OpenDoor(BLEDevice central, BLECharacteristic characteristic);
+void AdminChange(BLEDevice central, BLECharacteristic characteristic);
+void codeChange(BLEDevice central, BLECharacteristic characteristic);
+
 void blePeripheralConnectHandler(BLEDevice central);
 void blePeripheralDisconnectHandler(BLEDevice central);
 
@@ -241,8 +251,10 @@ void setup()
     BLE.setEventHandler(BLEConnected, blePeripheralConnectHandler);
     BLE.setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);
     AuthCode.writeValue("test");
-    AuthCode.setEventHandler(BLEWritten, switchCharacteristicWritten);
+    AuthCode.setEventHandler(BLEWritten, AuthCharacteristicWritten);
     DoorOPen.setEventHandler(BLEWritten, OpenDoor);
+    AdminChangeCharacteristic.setEventHandler(BLEWritten, AdminChange);
+    codeChangeCharacteristic.setEventHandler(BLEWritten, codeChange);
 
     myService.addCharacteristic(AuthCode);
     myService.addCharacteristic(AuthInfo);
@@ -252,6 +264,9 @@ void setup()
     myService.addCharacteristic(HeartBeat);
     myService.addCharacteristic(DoorOPen);
     myService.addCharacteristic(timer2info);
+    myService.addCharacteristic(AdminChangeCharacteristic);
+    myService.addCharacteristic(codeChangeCharacteristic);
+    myService.addCharacteristic(ChangeStatus);
 
     BLE.addService(myService);
 
@@ -298,20 +313,18 @@ void loop()
   unsigned long timeElapsed = currentMillis - previousMillis;
   if (timeElapsed >= interval)
   {
-    
+
     // Convert timeElapsed to seconds with four decimal points
     float seconds = timeElapsed / 1000.0; // Convert milliseconds to seconds
-    char buffer[10]; // Buffer to hold the string
+    char buffer[10];                      // Buffer to hold the string
 
     // Convert float to string with 4 decimal points
     snprintf(buffer, sizeof(buffer), "%.4f", seconds);
 
-    Serial.println(buffer);
     HeartBeat.writeValue(buffer);
 
     previousMillis = currentMillis;
   }
-  
 
   if (TimerStop1)
   {
@@ -500,29 +513,145 @@ void TimerDebug()
   Serial.println("Timer Have Run out");
 }
 
-void switchCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic)
+bool convertCodeStringToCodeArray(String inputString)
 {
-  Serial.print("Characteristic event, written: ");
-  Serial.print(AuthCode.value());
-  if (AuthCode.value() == CorrectCombiBLue)
+  char delimiter = ',';
+
+  numElements = 1;
+  for (int i = 0; i < inputString.length(); i++)
   {
-    AuthInfo.writeValue("Success");
-    Serial.println("Success");
+    if (inputString[i] == delimiter)
+    {
+      numElements++;
+    }
+  }
+  Serial.println("number of elemenst");
+  Serial.println(numElements);
+  if (numElements == 6)
+  {
+    int currentIndex = 0;
+    int startIndex = 0;
+    for (int i = 0; i <= inputString.length(); i++)
+    {
+      if (inputString[i] == delimiter || i == inputString.length())
+      {
+        String numberString = inputString.substring(startIndex, i);
+        enteredbleCombination[currentIndex] = numberString.toInt();
+        currentIndex++;
+        startIndex = i + 1;
+      }
+    }
+    return true;
   }
   else
   {
-    AuthInfo.writeValue("fail");
-    Serial.println("Fails");
+
+    ChangeStatus.writeValue("0");
+    AuthInfo.writeValue("To few or to many numbers");
+    Serial.println("To few or to many numbers");
+    return false;
   }
 }
 
-void OpenDoor(BLEDevice central, BLECharacteristic characteristic){
+bool CheckCode(int InputArray[], int CheckArray[])
+{
+  for (int k = 0; k < combilength; k++)
+  {
+    int entered = InputArray[k];
+    int correct = CheckArray[k];
+    String print = "Compare " + String(entered) + " to " + String(correct);
+    Serial.println(print);
+    if (entered != correct)
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+void ResetCode()
+{
+  for (int i = 0; i < combilength; i++)
+  {
+    enteredbleCombination[i] = 0;
+  }
+}
+
+void AuthCharacteristicWritten(BLEDevice central, BLECharacteristic characteristic)
+{
+  Serial.print("Characteristic event, written: ");
+  Serial.print(AuthCode.value());
+  Serial.println(" String to array");
+
+  if (!convertCodeStringToCodeArray(AuthCode.value()))
+  {
+  }
+  else
+  {
+    bool admin = CheckCode(enteredbleCombination, correctAdminCombination);
+    bool blesuccess = CheckCode(enteredbleCombination, correctCombination);
+
+    if (admin)
+    {
+      AuthInfo.writeValue("Admin");
+      Serial.println("Admin");
+      ResetCode();
+    }
+    if (blesuccess)
+    {
+      AuthInfo.writeValue("Success");
+      Serial.println("Success");
+      ResetCode();
+    }
+    if (!blesuccess && !admin)
+    {
+      AuthInfo.writeValue("fail");
+      Serial.println("Fails");
+    }
+  }
+}
+
+void OpenDoor(BLEDevice central, BLECharacteristic characteristic)
+{
   char charcode = DoorOPen.value();
   int value = charcode - '0';
   Serial.println(value);
-  if(value == 1){
-    if(AuthInfo.value() == "Success"){
+  if (value == 1)
+  {
+    if (AuthInfo.value() == "Success")
+    {
       LockFunction(true);
+    }
+  }
+}
+
+void AdminChange(BLEDevice central, BLECharacteristic characteristic)
+{
+  Serial.print("Characteristic event, written: ");
+  Serial.print(AdminChangeCharacteristic.value());
+
+  if (convertCodeStringToCodeArray(AdminChangeCharacteristic.value()))
+  {
+    memcpy(correctAdminCombination, enteredbleCombination, sizeof(correctAdminCombination));
+    ChangeStatus.writeValue("Successfull update");
+    for (int i = 0; i < combilength; i++)
+    {
+      Serial.println(correctAdminCombination[i]);
+    }
+  }
+}
+
+void codeChange(BLEDevice central, BLECharacteristic characteristic)
+{
+  Serial.print("Characteristic event, written: ");
+  Serial.print(codeChangeCharacteristic.value());
+  if (convertCodeStringToCodeArray(codeChangeCharacteristic.value()))
+  {
+    memcpy(correctCombination, enteredbleCombination, sizeof(correctCombination));
+    ChangeStatus.writeValue("Successfull update");
+    for (int i = 0; i < combilength; i++)
+    {
+      Serial.println(correctCombination[i]);
     }
   }
 }
@@ -541,4 +670,5 @@ void blePeripheralDisconnectHandler(BLEDevice central)
   Serial.println(central.address());
   AuthInfo.writeValue("..");
   AuthCode.writeValue("..");
+  ResetCode();
 }

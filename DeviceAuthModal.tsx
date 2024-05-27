@@ -12,18 +12,24 @@ import { Device } from "react-native-ble-plx";
 type DeviceModalProps = {
     visible: boolean;
     writeCharacteristicWithResponseForDevice: (Code: string) => void;
-    closeModal: () => void;
+    OpenInfoModal: () => void;
     Authinfo: string;
     disconect: () => void;
+    OpenAdminModal: () => void;
 }
 
 const DeviceAuthModal: FC<DeviceModalProps> = (props) => {
-    const { visible, writeCharacteristicWithResponseForDevice, Authinfo, closeModal, disconect } = props
+    const { visible, writeCharacteristicWithResponseForDevice, Authinfo, OpenInfoModal, disconect , OpenAdminModal} = props
 
     useEffect(() => {
         console.log('Incoming text changed:', Authinfo);
         if (Authinfo == "Success") {
-            closeModal();
+            OpenInfoModal();
+        }
+
+        if (Authinfo == "Admin"){
+            OpenAdminModal();
+            console.log("admin works");
         }
 
     }, [Authinfo]);
