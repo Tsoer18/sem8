@@ -546,7 +546,7 @@ bool convertCodeStringToCodeArray(String inputString)
   else
   {
 
-    ChangeStatus.writeValue("0");
+    ChangeStatus.writeValue("To few or to many numbers");
     AuthInfo.writeValue("To few or to many numbers");
     Serial.println("To few or to many numbers");
     return false;
@@ -632,11 +632,14 @@ void AdminChange(BLEDevice central, BLECharacteristic characteristic)
 
   if (convertCodeStringToCodeArray(AdminChangeCharacteristic.value()))
   {
-    memcpy(correctAdminCombination, enteredbleCombination, sizeof(correctAdminCombination));
-    ChangeStatus.writeValue("Successfull update");
-    for (int i = 0; i < combilength; i++)
+    if (AuthInfo.value() == "Admin")
     {
-      Serial.println(correctAdminCombination[i]);
+      memcpy(correctAdminCombination, enteredbleCombination, sizeof(correctAdminCombination));
+      ChangeStatus.writeValue("Successfull update");
+      for (int i = 0; i < combilength; i++)
+      {
+        Serial.println(correctAdminCombination[i]);
+      }
     }
   }
 }
@@ -647,11 +650,14 @@ void codeChange(BLEDevice central, BLECharacteristic characteristic)
   Serial.print(codeChangeCharacteristic.value());
   if (convertCodeStringToCodeArray(codeChangeCharacteristic.value()))
   {
-    memcpy(correctCombination, enteredbleCombination, sizeof(correctCombination));
-    ChangeStatus.writeValue("Successfull update");
-    for (int i = 0; i < combilength; i++)
+    if (AuthInfo.value() == "Admin")
     {
-      Serial.println(correctCombination[i]);
+      memcpy(correctCombination, enteredbleCombination, sizeof(correctCombination));
+      ChangeStatus.writeValue("Successfull update");
+      for (int i = 0; i < combilength; i++)
+      {
+        Serial.println(correctCombination[i]);
+      }
     }
   }
 }
